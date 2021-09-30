@@ -1,0 +1,648 @@
+---
+title: "A Statistical Study On Obesity Factors"
+author: "Eric Liu 1005351717"
+date: "August 23, 2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Abstract
+
+This report investigates several possible factors that relate to the prevalence of overweight and obesity in hopes to provide a better understanding on the growing problem of obesity. The data used in this report is taken from the The Canadian Community Health Survey (CCHS) particularly the 2017-2018 annual component, and it encompasses survey information about the health status of Canadians. The data section of this report provides summary statistics on several variables that may be a reasonable factor of obesity and out of these select variables, it was determined that healthy eating and physical activity that had largest difference in their BMI averages. Therefore these variables were tested by a frequentist exponential model and a Bayesian normal model to check the level of statistical significance. The frequentist model covered the physical exercise component and it concluded that on average, individuals with non-overweight BMI experience more physical activity than overweight individuals with approximately 18 more minutes of physical activity. The Bayesian model covered the healthy eating component and it concluded that on average, individuals that consume healthy foods more frequently  tend to have have a lower average BMI. In all models, a hypothesis test was done to determine the significance of these factors, and in all cases they were found to be statistically significant though t-testing. 
+
+# Introduction
+
+Obesity is one of many health issues growing in the world especially in North America and it is a condition where a person accumulates excessive fat that may affect their physical health and limit their performance in everyday life activities. The purpose of this report is to investigate several variables that may have a direct causal relationship with obesity through a variety of statistical models. The data used in this report is the The Canadian Community Health Survey (CCHS) taken from the health section under the Ontario Council of University Libraries (ODESI) and it contains general information about an individual's weight, BMI, and overall health status. The data section will introduce some more important variables to consider and their summary statistics on their mean, median, variance, etc. There are several hypotheses in this report that attribute to the global subject on whether or not obesity is a growing problem and all of these will be discussed into further detail in the models and results section. The first model introduced is a linear regression model which will predict the hypothesis on whether or not the annual body mass index (BMI) has remained constant throughout the years. The next hypothesis involves the topic of physical exercise and if it does in fact have a beneficiary relationship on an individuals BMI. An exponential model will be used to model this case. The final hypothesis will speculate if there is any statistical significance on the relationship between healthy eating and individual BMI, which will be modeled after a Bayesian normal model. Hopefully by the end of this report, the reader is provided with a thorough understanding of the statistical analysis of the data and perhaps gain new insights on the growing problem of obesity.
+
+# Data
+```{r, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(visdat)
+library(dplyr)
+library(Rcpp)
+library(ggforce)
+
+data <- read.csv("C:/Users/Larkin/Desktop/cchs-82M0013-E-2017-2018-Annual-component_F1.csv")
+data <- data %>% 
+  rename(Sex = DHH_SEX,
+         Age = DHHGAGE,
+         )
+CCHS_data <- read.csv("C:/Users/Larkin/Desktop/5cchs-82M0013-E-2017-2018-Annual-component_F1.csv")
+CCHS_data <- CCHS_data %>% 
+  rename(Type_of_drinker = ALCDVTTM,
+         Weight_in_kg = HWTDGWTK,
+         BMI = HWTDGCOR,
+         Healthy_consumption_type = FVCDVGDT,
+         Weekly_amount_of_physical_activity = PAA_045,
+         Hours_of_sleep = SLPG005,
+         Type_of_smoker = SMK_005
+         )
+CCHS_data <- cbind(CCHS_data, Sex = data$Sex, Age = data$Age)
+CCHS_data<- cbind(CCHS_data, Weight_in_lbs = CCHS_data$Weight_in_kg*(rep(2.2,103973)))
+CCHS_data <- CCHS_data %>% 
+  filter(Weight_in_kg < 999, 
+         Weight_in_lbs < 999,
+         BMI < 999, 
+         Type_of_smoker <=3,
+         Type_of_drinker <=3,
+         Weekly_amount_of_physical_activity < 996,
+         Age >= 3
+         )
+#get_dupes(CCHS_data)
+#unique(CCHS_data$Weight)
+#unique(CCHS_data$BMI)
+#unique(CCHS_data$Healthy_consumption_type)
+#unique(CCHS_data$Weekly_amount_of_physical_activity)
+#unique(CCHS_data$Hours_of_sleep)
+#unique(CCHS_data$Type_of_drinker)
+#unique(CCHS_data$Type_of_smoker)
+#unique(CCHS_data$Age)
+#unique(CCHS_data$Sex)
+#skim(CCHS_data)
+#vis_dat(CCHS_data)
+#vis_miss(CCHS_data)
+```
+
+### Data Collection
+
+The Canadian Community Health Survey (CCHS) is created by specialists from Statistics Canada where they survey and collect data on the health of Canadians. Around every one or two years there are approximately 120,000 adult Canadians surveyed. The survey is distributed equally across all regions in Canada relative to their population size to give the best representation all Canadians. The survey that will be used frequently particularly in this report will be the CCHS 2017-2018 annual component. The CCHS administers a variety of questions relating to health status, health care, and health determinants, but for this report the main topic of discussion are the factors attributing to obesity and how much has it changed over the years. Therefore only a subset of the total data is gathered, which include variables such as the weight and BMI of an individual.
+
+### Data Cleaning 
+
+The data set for this report is a subset of 9 variables chosen from the original CCHS data set. Since the original data set is very large, only a few columns were selected to motivate the topic of discussion and these variables in particular are described below. Furthermore, a quick check on all the individual data values was done which resulted in none of them having any duplicates. All individual data were unique. Another variable created was a Weight (lbs) variable since as the original data was only measured in kilograms. 
+
+### Data Set Variables
+
+* Weight (kg)
+* Weight (lbs)
+* BMI
+  * The Body Mass Index of an individual 
+    * Underweight is BMI less than 18
+    * Normal weight is BMI between 18 to 25
+    * Overweight is BMI between 25 to 30
+    * Obese is BMI greater than 30
+* Age
+  * Primarily focused on adults (18+ years)
+* Sex 
+  * Male/Female
+* Weekly amount of physical activity
+  * Measured by amount of hours of physical activity per week in a sense that an individual has participated in some sort of vigorous exercise or sports activity
+* Hours of sleep
+* Healthy consumption type
+  * How often a person eats fruits and vegetables per day categorized into 3 parts
+    * Less than 5 times per day
+    * 5 to 10 times per day
+    * More than 10 times per day
+* Type of drinker
+  * How often a person drinks categorized into 3 parts
+    * Regular drinker
+    * Occasional drinker
+    * Non-drinker
+* Type of smoker
+  * How often a person smokes categorized into 3 parts
+    * Daily
+    * Occasionally
+    * Non-smoker
+
+
+
+
+### Graph 1
+```{r, echo=FALSE}
+# These values are not made up, they are taken from ODESI on the summary statistic under Health -> Canadian Community Health Survey (CCHS) -> *choose year -> Height and Weight -> Body mass index
+Year <- c(2009,2010,2011,2012,2013,2014)
+Average_BMI <- c(26.012,26.025,26.097,26.151,26.304,26.361)
+yearly_average_bmi <- data.frame(Year,Average_BMI)
+ggplot(yearly_average_bmi, mapping = aes(x = Year, y=Average_BMI)) + geom_point() + geom_line()
+```
+The points on Graph 1 were taken from ODESI website on the summary statistic section for the survey of that year and they represent the average BMI for each year. The BMI is sometimes not measured every year, so the most consistent group of years chosen were 2009-2014. The graph exhibits an upward trend implying there exists an increase in average BMI per year. Later in this report, a linear regression model will be used estimate this increase and also determine if this change is statistically significant.
+
+#### (Table 1) Summary statistics for Body Mass Index (BMI)
+```{r, echo=FALSE}
+sex_data <- CCHS_data %>% 
+  select(Sex, BMI)
+
+for (i in 1:length(sex_data$Sex)) {
+  if (sex_data$Sex[i] == 1) {
+    sex_data$Sex[i] = "Male"
+  }
+  else if (sex_data$Sex[i] == 2) {
+    sex_data$Sex[i] = "Female"
+  }
+}
+```
+
+```{r, echo=FALSE}
+table5 <- sex_data %>% 
+  select(Sex, BMI) %>% 
+  group_by(Sex) %>% 
+  summarize(
+    Maximum = max(BMI),
+    "3rd Quartile" = quantile(BMI, 0.75),
+    Median = median(BMI),
+    IQR = quantile(BMI, 0.75)-quantile(BMI, 0.25),
+    Mean = round(mean(BMI), 2),
+    TrimmedMean20 = round(mean(BMI, 0.2), 2),
+    SD = round(sd(BMI),2),
+    Variance = round(var(BMI),2)
+  )
+knitr::kable(table5, caption = "")
+```
+
+```{r, echo=FALSE}
+age_data <- CCHS_data %>% 
+  select(Age, BMI)
+
+for (i in 1:length(age_data$Age)) {
+  if (age_data$Age[i] <= 7) {
+    age_data$Age[i] = "Less than 40"
+  }
+  else if (age_data$Age[i] > 7) {
+    age_data$Age[i] = "Older than 40"
+  }
+}
+```
+
+```{r, echo=FALSE}
+table6 <- age_data %>% 
+  select(Age, BMI) %>% 
+  group_by(Age) %>% 
+  summarize(
+    Maximum = max(BMI),
+    "3rd Quartile" = quantile(BMI, 0.75),
+    Median = median(BMI),
+    IQR = quantile(BMI, 0.75)-quantile(BMI, 0.25),
+    Mean = round(mean(BMI), 2),
+    TrimmedMean20 = round(mean(BMI, 0.2), 2),
+    SD = round(sd(BMI),2),
+    Variance = round(var(BMI),2)
+  )
+knitr::kable(table6, caption = "")
+```
+
+```{r, echo=FALSE}
+sleep_data <- CCHS_data %>%
+  filter(Hours_of_sleep < 96)
+sleep_data <- sleep_data %>% 
+  select(Hours_of_sleep, BMI)
+
+for (i in 1:length(sleep_data$Hours_of_sleep)) {
+  if (sleep_data$Hours_of_sleep[i] <= 5) {
+    sleep_data$Hours_of_sleep[i] = "Less than 7"
+  }
+  else if (sleep_data$Hours_of_sleep[i] > 5) {
+    sleep_data$Hours_of_sleep[i] = "Greater than 7"
+  }
+}
+```
+
+```{r, echo=FALSE}
+table1 <- sleep_data %>% 
+  select(Hours_of_sleep, BMI) %>% 
+  group_by(Hours_of_sleep) %>% 
+  summarize(
+    Maximum = max(BMI),
+    "3rd Quartile" = quantile(BMI, 0.75),
+    Median = median(BMI),
+    IQR = quantile(BMI, 0.75)-quantile(BMI, 0.25),
+    Mean = round(mean(BMI), 2),
+    TrimmedMean20 = round(mean(BMI, 0.2), 2),
+    SD = round(sd(BMI),2),
+    Variance = round(var(BMI),2)
+  )
+knitr::kable(table1, caption = "")
+```
+
+```{r, echo=FALSE}
+healthyeating_data <- CCHS_data %>%
+  filter(Healthy_consumption_type <= 3)
+healthyeating_data <- healthyeating_data %>% 
+  select(Healthy_consumption_type, BMI)
+
+for (i in 1:length(healthyeating_data$Healthy_consumption_type)) {
+  if (healthyeating_data$Healthy_consumption_type[i] == 1) {
+    healthyeating_data$Healthy_consumption_type[i] = "Less than 5 times per day"
+  }
+  else if (healthyeating_data$Healthy_consumption_type[i] == 2) {
+    healthyeating_data$Healthy_consumption_type[i] = "Between 5 to 10 times per day"
+  }
+  else if (healthyeating_data$Healthy_consumption_type[i] == 3) {
+    healthyeating_data$Healthy_consumption_type[i] = "More than than 10 times per day"
+  }
+}
+```
+
+```{r, echo=FALSE}
+table2 <- healthyeating_data %>% 
+  select(Healthy_consumption_type, BMI) %>% 
+  group_by(Healthy_consumption_type) %>% 
+  summarize(
+    Maximum = max(BMI),
+    "3rd Quartile" = quantile(BMI, 0.75),
+    Median = median(BMI),
+    IQR = quantile(BMI, 0.75)-quantile(BMI, 0.25),
+    Mean = round(mean(BMI), 2),
+    TrimmedMean20 = round(mean(BMI, 0.2), 2),
+    SD = round(sd(BMI),2),
+    Variance = round(var(BMI),2)
+  )
+knitr::kable(table2, caption = "")
+```
+
+```{r, echo=FALSE}
+smoker_data <- CCHS_data %>%
+  filter(Type_of_smoker <= 3)
+smoker_data <- smoker_data %>% 
+  select(Type_of_smoker, BMI)
+
+for (i in 1:length(smoker_data$Type_of_smoker)) {
+  if (smoker_data$Type_of_smoker[i] == 1) {
+    smoker_data$Type_of_smoker[i] = "Daily"
+  }
+  else if (smoker_data$Type_of_smoker[i] == 2) {
+    smoker_data$Type_of_smoker[i] = "Occasionally"
+  }
+  else if (smoker_data$Type_of_smoker[i] == 3) {
+    smoker_data$Type_of_smoker[i] = "Not at all "
+  }
+}
+```
+
+```{r, echo=FALSE}
+table3 <- smoker_data %>% 
+  select(Type_of_smoker, BMI) %>% 
+  group_by(Type_of_smoker) %>% 
+  summarize(
+    Maximum = max(BMI),
+    "3rd Quartile" = quantile(BMI, 0.75),
+    Median = median(BMI),
+    IQR = quantile(BMI, 0.75)-quantile(BMI, 0.25),
+    Mean = round(mean(BMI), 2),
+    TrimmedMean20 = round(mean(BMI, 0.2), 2),
+    SD = round(sd(BMI),2),
+    Variance = round(var(BMI),2)
+  )
+knitr::kable(table3, caption = "")
+```
+
+```{r, echo=FALSE}
+drinker_data <- CCHS_data %>%
+  filter(Type_of_drinker <= 3)
+drinker_data <- drinker_data %>% 
+  select(Type_of_drinker, BMI)
+
+for (i in 1:length(drinker_data$Type_of_drinker)) {
+  if (drinker_data$Type_of_drinker[i] == 1) {
+    drinker_data$Type_of_drinker[i] = "Daily"
+  }
+  else if (drinker_data$Type_of_drinker[i] == 2) {
+    drinker_data$Type_of_drinker[i] = "Occasionally"
+  }
+  else if (drinker_data$Type_of_drinker[i] == 3) {
+    drinker_data$Type_of_drinker[i] = "Not at all "
+  }
+}
+```
+
+```{r, echo=FALSE}
+table4 <- drinker_data %>% 
+  select(Type_of_drinker, BMI) %>% 
+  group_by(Type_of_drinker) %>% 
+  summarize(
+    Maximum = max(BMI),
+    "3rd Quartile" = quantile(BMI, 0.75),
+    Median = median(BMI),
+    IQR = quantile(BMI, 0.75)-quantile(BMI, 0.25),
+    Mean = round(mean(BMI), 2),
+    TrimmedMean20 = round(mean(BMI, 0.2), 2),
+    SD = round(sd(BMI),2),
+    Variance = round(var(BMI),2)
+  )
+knitr::kable(table4, caption = "")
+```
+Table 1 shows the summary statistics for all variables that may relate to or affect an individual's weight. There are several variables that attribute to greater mean BMI such as the decreased amount of sleep, old age, being a non-smoker, but the variable to notice with the most change in the mean and the median BMI is the healthy consumption type. The healthy consumption type refers to the amount of healthy foods (fruits and vegetables particularly) that an individual consumes per day. The difference in BMI differs by nearly 2 in their medians. In all variables the mean is in the realm of 26-28, which is considered overweight (BMI of 25-30) and the 3rd quartile for all variables are above 30, meaning around 25% of all Canadians in this survey are considered obese. The graph below will give a better visual representation of the BMI count proportion.
+
+
+### Graph 2
+
+```{r, echo=FALSE}
+bins <- 58
+cols <- c("lightgreen","darkred")
+colGradient <- colorRampPalette(cols)
+cut.cols <- colGradient(bins)
+cuts <- cut(CCHS_data$BMI,bins)
+names(cuts) <- sapply(cuts,function(t) cut.cols[which(as.character(t) == levels(cuts))])
+
+ggplot(CCHS_data, mapping = aes(x = BMI, fill=cut(BMI,bins))) + geom_histogram(binwidth = 1, show.legend=FALSE) + scale_color_manual(values=cut.cols,labels=levels(cuts)) +
+    scale_fill_manual(values=cut.cols,labels=levels(cuts))
+```
+Graph 2 above shows a histogram that counts all the individual BMIs. The graph closely resembles a normal curve with a possible mean of approximately 27-28. The mean of this graph can also be estimated through modeling under a normal distribution, and then consequently bootstrapping a confidence interval to give a range of values where it is most confident where the mean is.
+
+```{r, echo=FALSE}
+physical_activity_data <- CCHS_data %>% 
+  select(Weekly_amount_of_physical_activity, BMI)
+
+for (i in 1:length(physical_activity_data$BMI)) {
+  if (physical_activity_data$BMI[i] < 18.5) {
+    physical_activity_data$BMI[i] = "Underweight"
+  }
+  else if ((physical_activity_data$BMI[i] >= 18.5) & (physical_activity_data$BMI[i] < 25)) {
+    physical_activity_data$BMI[i] = "Normal weight"
+  }
+  else if ((physical_activity_data$BMI[i] >= 25) & (physical_activity_data$BMI[i] < 30)) {
+    physical_activity_data$BMI[i] = "Overweight"
+  }
+  else if (physical_activity_data$BMI[i] >= 30) {
+    physical_activity_data$BMI[i] = "Obese"
+  }
+}
+```
+
+#### Graph 3
+
+```{r, echo=FALSE}
+physical_activity_data <- physical_activity_data %>% 
+  filter(Weekly_amount_of_physical_activity <= 25)
+d <- physical_activity_data %>% count(Weekly_amount_of_physical_activity)
+colnames(d) <- c("Weekly_amount_of_physical_activity","count")
+ggplot(d, mapping = aes(x = Weekly_amount_of_physical_activity, y=count, fill=Weekly_amount_of_physical_activity)) + geom_bar(stat="identity")
+```
+Graph 3 shows a bar graph of the total weekly amount of physical activity (in hours) and by physical activity it means that the individual has done vigorous exercise or participated sports activities. The graph only shows the hours up to 20, but since there are a lot of extreme outliers, the graph was reduced to give a more pleasant visualization. The vast majority of the sample population is shown to have less than an hour of weekly physical activity. Later on in this report, it can be shown that this graph follows an exponential distribution and its expected value can be found in a range of bootstrapped confidence intervals.
+
+
+
+
+
+# Methods & Models
+
+This section of the report will introduce a variety statistical models that will be used to analyze the variables of the data set and hopefully conclude on the hypotheses in this report. The types of models in this section are a frequentist, Bayesian, and a linear regression model.
+
+### (Model 1) Measuring the change in the average BMI per year using linear regression
+
+The first model used here will be a linear regression model. Linear regression models are used to estimate and predict positive or negative linear changes. In reference to Graph 1, an upward linear trend can be observed and thus a this is suitable to use.
+The model for linear regression can be described as
+$$
+y_i = \alpha + \beta x_i + \epsilon_i
+$$
+where $x_i$ is the ith year and $y_i$ is the average BMI of a Canadian for the ith year. The $\alpha$ represents "y-intercept" and $\beta_1$ is the rate of change or "slope" of the line. Finally, $\epsilon_i$ represents the error term that varies but at constant amount. The parameter of interest to estimate in this model is $\beta$.
+
+* Model Assumptions:
+    + there is a linear relationship between $x_i$ and $y_i$
+    + the variables $x_i$ and $y_i$ are independent of each other
+    + the $\epsilon_i$'s are independent
+    + the error term is normally distributed by $\epsilon_i \sim N(0, \sigma^2)$ 
+      - in other words, the $\epsilon_i$'s have equal spread or constant variance
+      
+The hypothesis this model will try to test is the change in average annual BMI. The null hypothesis in this case would be $\beta$=0, or more specifically there is generally no change in annual obesity and the rate of change is 0. 
+
+### (Model 2) Determining the expected value of weekly physical activity time using Maximum Likelihood Estimation
+
+This next model is a frequentist model as it uses the method of Maximum Likelihood Estimation (MLE) to estimate a parameter of a distribution function. As shown in Graph 3, the bar graph is heavily skewed to the right and the general shape of the graph resembles that of an exponential function, and thus it will be modeled after an exponential distribution.
+The model for the exponential distribution is
+$$
+Y_i \sim Exp(\theta)
+$$
+where $Y_i$ is the total amount in hours of weekly physical activity for each person $i$ and $\theta$ is the rate of that amount. The goal is to estimate the rate parameter $\theta$ through MLE. For an exponential distribution, it can be derived that the maximum likelihood estimate for $\theta$ is $\frac{1}{\bar{X}}$ or simply the reciprocal of the sample mean. The full derivation of this can be found in the Appendix section. Finally, a 95% bootstrapped confidence interval will be done to give a range of values where it is considered confident where the parameter $\theta$ may be. Since the expected value of $Exp(\theta)$ is also known, the 95% confidence interval can also be constructed for the mean of this distribution.  
+
+* Model Assumptions:
+    + later intervals in time are not affected by previous times and are independent of each other
+    + the parameter $\theta$ is constant and does not follow a prior distribution like in a Bayesian model
+    
+The hypothesis this model will try to test is if there is any statistical significance between overweight (BMI >= 25.0) and non-overweight (BMI < 25.0) people in their weekly physical activity time. The null hypothesis in this case would be to assume that there is no great difference between healthy and non-healthy eaters and their means are essentially the same
+
+### (Model 3) Determining the expected BMI value via Bayesian modeling
+
+Graph 2 shows a histogram of the BMIs of all the individuals in the survey. Since the shape of this graph closely resembles a normal curve it will be modeled after a normal distribution under a Bayesian framework. The likelihood and prior for this model is 
+$$
+X_1, X_2, ... , X_n \sim N(\mu,\sigma^2),  \\
+\mu  \sim N(27,1)
+$$
+The $X_i$'s represent an individuals BMI that follow a likelihood function of a normal distribution with a mean of $\mu$ and standard deviation of $\sigma$. In Graph 2 it shows that the mean could be anywhere between 26-28 and so the prior is chosen to follow a normal distribution with a mean of 27 and standard deviation of 1. Given the likelihood and the prior, the posterior distribution also follows a normal distribution and it derives to
+$$
+\mu|x_1,...,x_n,\sigma^2_0 \sim N(\frac{\mu_0\tau_0^{-2}+n\bar{x}\sigma_0^{-2}}{\tau_0^{-2}+n\sigma_0^{-2}},\frac{1}{\tau_0^{-2}+n\sigma_0^{-2}})
+$$
+and therefore the Bayesian point estimate evaluates to 
+$$
+\frac{\mu_0\tau_0^{-2}+n\bar{x}\sigma_0^{-2}}{\tau_0^{-2}+n\sigma_0^{-2}}
+$$
+where $\mu_0$ and $\tau_0$ represents the prior mean and standard deviation (in this case its 27 and 1), n represents the sample population size, $\bar{x}$ represents the sample mean, and $\sigma_0^2$ represents the true population variance. A major assumption in this model is it uses the sample variance to substitute for the true population variance. The Bayesian point estimate can be used to determine the mean of the Bayesian posterior and therefore the mean of this Bayesian model. Finally, a 95% credible interval will be given to show the range of values where this point estimate is most likely situated on. The hypothesis this model tests is the statistical significance between healthy (consumes 5 or more fruits/vegetables per day) and non-healthy (consumes less than 5 fruits/vegetables per day). The null hypothesis in this case would be to assume that there is no great difference in average BMI and their means are the same.
+
+
+
+
+
+# Results & Findings
+
+Graph 4 below is the result of the linear regression model and it shows what can be best described as "the line of best fit" for the linear upward trend occurring. By using the lm() function in R, the slope of this line and the estimated $\beta$ value is determined to be around $\beta=0.08$. Therefore the rate of change for average BMI per year is about a 0.08 between the years 2009-2014. The lm() function also revealed that the p-value for the two sided t-test is 0.00126 which is less than 0.05, the significance threshold. Therefore the null hypothesis can certainly be rejected and it can be concluded that there is definitely significant change in BMI every year.
+
+### Graph 4
+```{r, echo=FALSE}
+linear_model <- lm(Average_BMI~Year, data=yearly_average_bmi)
+
+# \beta = 0.07531
+# two sided hypothesis test: p-value = 0.00126
+
+yearly_average_bmi %>% ggplot(aes(Year, Average_BMI)) + geom_point() + 
+  geom_line() +
+  geom_smooth(formula = y ~ x, method = "lm", se = FALSE) +
+  labs(title = "Annual Average BMI", 
+       x = "Year",
+       y = "Average BMI") 
+```
+Graph 5 below shows the two exponential models between non-overweight and overweight/obese. The MLE $\theta$ values were determined to be around 0.62 and 0.76 respectively, and their expected values or means are around 1.62 and 1.32 respectively. Therefore on average under this exponential model, non-overweight individuals spend around 0.3 hours more on physical activity than overweight individuals. The hypothesis test for this model was determined using the t.test() function in R and it resulted in a very minuscule p-value of 2.2e-16, which is significantly less than 0.05. Therefore the null hypothesis can be rejected and this result is deemed very statistically significant. The table below also shows a confidence interval for the means. In both cases, there is a very tight range, meaning its accuracy of where the mean is very high.
+
+### (Graph 5)
+```{r, echo=FALSE}
+p <- physical_activity_data
+for (i in 1:length(p$BMI)) {
+  if ((p$BMI[i] == "Underweight") || (p$BMI[i] == "Normal weight")) {
+    p$BMI[i] = "Non-overweight"
+  }
+  else if ((p$BMI[i] == "Overweight") || (p$BMI[i] == "Obese")) {
+    p$BMI[i] = "Overweight/Obese"
+  }
+}
+
+ggplot(p, mapping = aes(x = Weekly_amount_of_physical_activity)) + 
+  geom_histogram(colour="black", fill="white", binwidth = 1, aes(y = ..density..)) +
+  stat_function(fun = dexp,
+    args = list(1/mean(p$Weekly_amount_of_physical_activity)),
+                col = "blue") +
+  facet_grid(~BMI)
+
+```
+
+### (Table 2) Confidence intervals for weekly physical activity (in hours)
+
+```{r, echo=FALSE}
+# Bootstrapped confidence intervals
+
+nonoverweight <- p %>% 
+  filter(BMI == "Non-overweight")
+overweight <- p %>% 
+  filter(BMI == "Overweight/Obese")
+
+# Non-overweight CI
+n <- 103772
+mysample1 <- rexp(n, 1/mean(nonoverweight$Weekly_amount_of_physical_activity))
+
+B <- 1000
+all_studentized_mean1 <- c()
+
+for(i in 1:B) {
+  bootstrap_sample <- sample(mysample1, replace = TRUE)
+  studentized_mean <- (mean(bootstrap_sample) - mean(mysample1)) / (sd(bootstrap_sample) / sqrt(n))
+  all_studentized_mean1[i] <- studentized_mean
+}
+
+con1 <- c(mean(mysample1) - quantile(all_studentized_mean1, 0.975) * sd(mysample1) / sqrt(n),
+  mean(mysample1) - quantile(all_studentized_mean1, 0.025) * sd(mysample1) / sqrt(n)
+  )
+
+# Overweight/Obese CI
+n <- 103772
+mysample2 <- rexp(n, 1/mean(overweight$Weekly_amount_of_physical_activity))
+
+B <- 1000
+all_studentized_mean2 <- c()
+
+for(i in 1:B) {
+  bootstrap_sample <- sample(mysample2, replace = TRUE)
+  studentized_mean <- (mean(bootstrap_sample) - mean(mysample2)) / (sd(bootstrap_sample) / sqrt(n))
+  all_studentized_mean2[i] <- studentized_mean
+}
+
+con2 <- c(mean(mysample2) - quantile(all_studentized_mean2, 0.975) * sd(mysample2) / sqrt(n),
+  mean(mysample2) - quantile(all_studentized_mean2, 0.025) * sd(mysample2) / sqrt(n)
+  )
+
+con <- rbind(con1,con2)
+rownames(con) <- c("Non-overweight","Overweight/Obese")
+
+knitr::kable(con, caption = "")
+```
+
+
+Finally Graph 6 shows the Bayesian normal model between healthy and non-healthy eaters. The Bayesian point estimate means were determined to be around 27.94 and 28.65 respectively. The vertical blue line in the graph represents the Bayesian point estimate for all people and the red normal curve represents the Bayesian normal posterior distribution. The hypothesis test is determined by the t.test() function in R, and the p-value was determined to be 8.909e-07 which is significantly less than 0.05. Therefore the null hypothesis is rejected once again in favour of healthy eaters having a lower BMI than non-healthy individuals as a significant statistic. Finally in the table below, the credible intervals are given for both categories and they have a very large interval range with healthy eaters have a slightly narrower interval. The large intervals can be attributed to the large variance of the data. The credible intervals also conclude that the Bayesian point estimate mean has a 95% chance that it lies in those ranges.
+
+```{r, echo=FALSE}
+healthyeating_data <- CCHS_data %>%
+  filter(Healthy_consumption_type <= 3)
+healthyeating_data <- healthyeating_data %>% 
+  select(Healthy_consumption_type, BMI)
+
+for (i in 1:length(healthyeating_data$Healthy_consumption_type)) {
+  if (healthyeating_data$Healthy_consumption_type[i] == 1) {
+    healthyeating_data$Healthy_consumption_type[i] = "Less than 5 times per day"
+  }
+  else if (healthyeating_data$Healthy_consumption_type[i] >= 2) {
+    healthyeating_data$Healthy_consumption_type[i] = "5 or more times per day"
+  }
+}
+```
+
+### Graph 6
+
+```{r, echo=FALSE}
+mu <- (27 + length(CCHS_data$BMI)*mean(CCHS_data$BMI)/var(CCHS_data$BMI)) / (1+length(CCHS_data$BMI)/var(CCHS_data$BMI))
+var <- var(CCHS_data$BMI)*(length(CCHS_data$BMI)/var(CCHS_data$BMI))/(1+length(CCHS_data$BMI)/var(CCHS_data$BMI))
+truemean <- mean(CCHS_data$BMI)
+
+ggplot(healthyeating_data, mapping = aes(x = BMI)) + geom_histogram(colour="black", fill="white", binwidth = 1, aes(y = ..density..)) + 
+  stat_function(fun = dnorm,
+                args = list(mean=mu, sd=sqrt(var)),
+                col = "red") +
+  geom_vline(xintercept=mu, color="steelblue", size=2) +
+  facet_grid(~Healthy_consumption_type) 
+```
+
+#### (Table 3) Credible intervals for average BMI
+```{r, echo=FALSE}
+lessfive <- CCHS_data %>% 
+  filter(Healthy_consumption_type == 1)
+mu1 <- (27 + length(lessfive$BMI)*mean(lessfive$BMI)/var(lessfive$BMI)) / (1+length(lessfive$BMI)/var(lessfive$BMI))
+var1 <- var(lessfive$BMI)*(length(lessfive$BMI)/var(lessfive$BMI))/(1+length(lessfive$BMI)/var(lessfive$BMI))
+
+morefive <- CCHS_data %>% 
+  filter(Healthy_consumption_type > 1)
+mu2 <- (27 + length(morefive$BMI)*mean(morefive$BMI)/var(morefive$BMI)) / (1+length(morefive$BMI)/var(morefive$BMI))
+var2 <- var(morefive$BMI)*(length(morefive$BMI)/var(morefive$BMI))/(1+length(morefive$BMI)/var(morefive$BMI))
+
+
+ci1 <- cbind(qnorm(0.025,mu1,sqrt(var1)),qnorm(0.975,mu1,sqrt(var1)))
+ci2 <- cbind(qnorm(0.025,mu2,sqrt(var2)),qnorm(0.975,mu2,sqrt(var2)))
+
+ci3 <- rbind(ci1,ci2)
+
+rownames(ci3) <- c("Eats heathy less than 5 times a day", "Eats healthy 5 times or more a day")
+knitr::kable(ci3, caption = "")
+```
+
+```{r, echo=FALSE}
+# Hypothesis Tests via two sample t-test
+bayes <- t.test(lessfive$BMI,morefive$BMI)
+# p-value = 8.909e-07
+freq <- t.test(nonoverweight$Weekly_amount_of_physical_activity,overweight$Weekly_amount_of_physical_activity)
+# p-value < 2.2e-16
+```
+
+# Conclusion & Summary
+
+Some limitations this report had was mainly due to the data. For example, the linear regression model was only based on 5 years 2009-2014 because the survey sometimes did not ask for the weight and BMI every year. Another drawback was that generally most of the data in the survey was almost all categorical making it was quite difficult to find any continuous data relating to weight and BMI. The main goal this report was determine what possible factors of obesity have statistical significance, but not every factor was included in this report. For future data analysis, there are many other obesity factors that could have been explored such as diseases, family history, mental health, but also in way that is similar to this report such as investigating the frequency of consumption, or the frequency of daily sunlight etc.
+
+In summary the null hypotheses in this report assumed that there were generally no changes or differences in their parameters. Particularly in the linear regression model, it was the assumed that the rate of change was 0. For the frequentist exponential model, the null hypothesis was to assume that there was no difference between the $\theta$'s, and for the Bayesian normal model the null was to assume that there was no difference between the $\mu$'s. The results for all hypothesis tests resulted in p-values that were significantly less than 0.05, which is the critical value threshold in determining statistical significance. Since all values were indeed less than 0.05, all results are deemed statistically significant. The linear regression model has shown that there was a increase of 0.08 in average BMI per year during 2009-2014. The frequentist exponential model showed that individuals with non-overweight BMI typically have a higher average physical activity time (1.62 hours) than overweight individuals (1.32) and the Bayesian normal model showed that healthy eaters have a lower BMI on average (27.94) than less healthy eaters (28.65). An interpretation of these results is a quite a simple one, if a person gets involved healthy eating and physical exercise it will help cut down fat, which lowers their weight and therefore lowering their overall BMI. 
+
+# Appendix
+
+### Maximum Likelihood Estimate Derivation
+
+In this model, it is assumed that all x values are greater than or equal to 0. In relation to the data it makes sense since the the value in hours is always positive. The parameter of interest to derive here is $\theta$.
+The sample data values follow an exponential distribution
+$$
+x_1,...,x_n \sim Exp(\theta) 
+$$
+The exponential distribution function is
+$$
+f(x)= \theta e^{-\theta x} 
+$$
+The likelihood function is
+$$
+L(\theta)=\prod_{i=1}^n f(x_i) \\
+=\prod_{i=1}^n \theta e^{-\theta x} \\
+=\theta^ne^{-\theta\sum_{i=1}^nx_i}
+$$
+The log-likelihood function is
+$$
+l(\theta)=log(\theta^ne^{-\theta\sum_{i=1}^nx_i}) \\
+=nlog(\theta)-\theta\sum_{i=1}^nx_i
+$$
+Derivation:
+$$
+l'(\theta)=\frac{n}{\theta}-\sum_{i=1}^nx_i \\
+\Rightarrow l'(\theta)=0 \\
+\Rightarrow \frac{n}{\theta}-\sum_{i=1}^nx_i=0 \\
+\Rightarrow \frac{n}{\theta}=\sum_{i=1}^nx_i \\
+\Rightarrow \theta=\frac{n}{\sum_{i=1}^nx_i} \\
+\Rightarrow \theta=\frac{1}{\frac{\sum_{i=1}^nx_i}{n}}
+\Rightarrow \theta=\frac{1}{\bar{x}}
+$$
+Therefore the MLE for $\theta$ is simply just the reciprocal of the sample mean $\bar{x}$.
+
+The second derivative test:
+$$
+l''(\theta)=-\frac{n}{\theta^2} < 0
+$$
+Since the second derivative is always negative, the value derived $\theta=\frac{1}{\bar{x}}$ is indeed a global maximum.
+
+
+
+# References
+
+1. Uoftlibraries. (n.d.). University of Toronto Libraries. Canadian Community Health Survey, 2017-2018. http://odesi2.scholarsportal.info.myaccess.library.utoronto.ca/webview/index.jsp?object=http%3A%2F%2F142.150.190.128%3A80%2Fobj%2FfStudy%2Fcchs-82M0013-E-2017-2018-Annual-component&amp;gs=7&amp;v=2&amp;mode=download. 
+
+2. T.Test: Student's t-test. t.test(). (n.d.). https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/t.test. 
+
+
